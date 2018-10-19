@@ -1,0 +1,50 @@
+---
+# lief is required for the Advanced Attachment Handler and requires manual compilation
+
+- name: Install cmake3 and devtoolset-7 from SCL
+  yum:
+    name:
+     - cmake3
+     - devtoolset-7
+    state: latest
+
+- name: Create directories
+  file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - /tmp/LIEF
+    - /tmp/LIEF_INSTALL
+
+- name: Clone git repo for source code
+  command: "git clone --depth 3 --branch master --single-branch https://github.com/lief-project/LIEF.git LIEF"
+  args:
+    chdir: /tmp/LIEF
+
+- name: Create build directory
+  file:
+    path: /tmp/LIEF/LIEF/build
+    state: directory
+
+- name: Run cmake3
+  shell: 'scl enable devtoolset-7 "cmake3 -DLIEF_PYTHON_API=on -DLIEF_DOC=off -DCMAKE_INSTALL_PREFIX=/tmp/LIEF_INSTALL -DCMAKE_BUILD_TYPE=Release -DPYTHON_VERSION=2.7 .."'
+  args:
+    chdir: /tmp/LIEF/LIEF/build
+
+- name: Run make
+  command: make -j3
+  args:
+    chdir: /tmp/LIEF/LIEF/build
+
+- name: Run setup.py
+  shell: "python2 setup.py install || :"
+  args:
+    chdir: /tmp/LIEF/LIEF/api/python
+
+- name: Run make install and make package
+  shell: "make {{ item }}"
+  args:
+    chdir: /tmp/LIEF/LIEF/build
+  loop:
+    - install
+    - package

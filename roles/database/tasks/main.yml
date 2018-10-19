@@ -1,0 +1,32 @@
+---
+# Set up the database
+
+- name: Set database to listen on localhost only (1)
+  copy:
+    dest: /etc/opt/rh/rh-mariadb102/my.cnf.d/bind-address.cnf
+    content: '[mysqld]'
+
+- name: Set database to listen on localhost only (2)
+  lineinfile:
+    path: /etc/opt/rh/rh-mariadb102/my.cnf.d/bind-address.cnf
+    line: 'bind-address=127.0.0.1'
+    create: yes
+
+- name: Restart MariaDB service
+  systemd:
+    name: rh-mariadb102-mariadb
+    state: restarted
+
+- name: Create MISP database
+  shell: source scl_source enable rh-mariadb102 rh-php71 rh-redis32 && mysql -u root -p{{ mariadb_root_password }} -ne "{{ item }}"
+  loop:
+    - create database misp;
+    - grant usage on *.* to misp@localhost identified by '{{ mariadb_misp_password }}';
+    - grant all privileges on misp.* to misp@localhost;
+  ignore_errors: yes # if this has already been run, errors will be thrown saying db already exists
+
+- name: Import the empty MySQL database from MYSQL.sql
+  shell: source scl_source enable rh-mariadb102 rh-php71 rh-redis32 && mysql -u misp -p{{ mariadb_misp_password }} misp < INSTALL/MYSQL.sql
+  args:
+    chdir: /var/www/MISP
+  ignore_errors: yes # if this has already been run, errors will be thrown saying table already exists

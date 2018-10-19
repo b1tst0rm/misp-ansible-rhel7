@@ -1,0 +1,42 @@
+<VirtualHost *:80>
+        ServerName {{ fqdn}}
+
+        Redirect permanent / https://{{ fqdn }}
+
+        LogLevel warn
+        ErrorLog /var/log/httpd/misp.local_error.log
+        CustomLog /var/log/httpd/misp.local_access.log combined
+        ServerSignature Off
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerAdmin {{ admin_email }}
+    ServerName {{ fqdn }}
+    DocumentRoot /var/www/MISP/app/webroot
+    <Directory /var/www/MISP/app/webroot>
+        Options -Indexes
+        AllowOverride all
+        Order allow,deny
+        allow from all
+    </Directory>
+
+    <IfModule !mod_php5.c>
+        SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+        DirectoryIndex /index.php index.php
+        <FilesMatch \.php$>
+            SetHandler "proxy:fcgi://127.0.0.1:9000"
+        </FilesMatch>
+    </IfModule>
+
+    SSLEngine On
+    SSLCertificateFile /etc/ssl/private/misp.local.crt
+    SSLCertificateKeyFile /etc/ssl/private/misp.local.key
+# (commented out for self-signed cert)    SSLCertificateChainFile /etc/ssl/private/misp-chain.crt
+
+    LogLevel warn
+    ErrorLog /var/log/httpd/misp.local_error.log
+    CustomLog /var/log/httpd/misp.local_access.log combined
+    ServerSignature Off
+    Header set X-Content-Type-Options nosniff
+    Header set X-Frame-Options DENY
+</VirtualHost>

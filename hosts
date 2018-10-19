@@ -1,0 +1,19 @@
+[all:vars]
+ansible_user=root
+ansible_ssh_private_key_file=/home/{user}/.ssh/id_rsa
+mariadb_root_password=misp
+mariadb_misp_password={CHANGE ME}
+misp_version_number=2.4.96 
+timezone=UTC
+admin_email={CHANGE ME}
+baseurl=https://{CHANGE ME}
+fqdn={CHANGE ME}
+salt_key={CHANGE ME}
+country=US
+state={CHANGE ME}
+locality={CHANGE ME}
+org={CHANGE ME}
+org_unit={CHANGE ME}
+
+[mispinstance]
+{CHANGE ME, IP OF SERVER}

@@ -1,0 +1,64 @@
+---
+# Setup Apache
+
+- name: Copy SSL vhost config template to Apache configuration directory
+  template:
+    src: ../templates/apache_ssl.j2
+    dest: /etc/httpd/conf.d/misp.conf
+
+- name: Since SELinux is enabled, we need to allow httpd to write to certain directories
+  command: "chcon {{ item }}"
+  loop:
+    - -t httpd_sys_rw_content_t /var/www/MISP/app/files
+    - -t httpd_sys_rw_content_t /var/www/MISP/app/files/terms
+    - -t httpd_sys_rw_content_t /var/www/MISP/app/files/scripts/tmp
+    - -t httpd_sys_rw_content_t /var/www/MISP/app/Plugin/CakeResque/tmp
+    - -R -t httpd_sys_rw_content_t /var/www/MISP/app/tmp
+    - -R -t httpd_sys_rw_content_t /var/www/MISP/app/webroot/img/orgs
+    - -R -t httpd_sys_rw_content_t /var/www/MISP/app/webroot/img/custom
+
+- name: Allow httpd to connect to the redis server and php-fpm over tcp/ip
+  command: setsebool -P httpd_can_network_connect on
+
+- name: Install mod_ssl to enable SSL support
+  yum:
+    name: mod_ssl
+    state: latest
+
+- name: Create /etc/ssl/private directory
+  file:
+    path: /etc/ssl/private
+    state: directory
+
+- name: Generate self-signed certificate
+  command: 
+  args:
+     argv:
+       - openssl 
+       - req 
+       - -newkey 
+       - rsa:4096 
+       - -days 
+       - 365 
+       - -nodes 
+       - -x509 
+       - -subj 
+       - "/C={{ country }}/ST={{ state }}/L={{ locality }}/O={{ org }}/OU={{ org_unit }}/CN={{ fqdn }}/emailAddress={{ admin_email }}" 
+       - -keyout 
+       - /etc/ssl/private/misp.local.key 
+       - -out 
+       - /etc/ssl/private/misp.local.crt
+
+- name: Start the httpd service and enable it to start on boot
+  systemd:
+    name: httpd.service
+    enabled: yes
+    state: started
+    masked: no
+
+- name: Open a hole in the firewalld service
+  command: "firewall-cmd {{ item }}"
+  loop:
+    - --zone=public --add-port=443/tcp --permanent
+    - --zone=public --add-port=80/tcp --permanent
+    - --reload

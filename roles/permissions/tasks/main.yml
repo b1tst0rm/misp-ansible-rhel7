@@ -1,0 +1,40 @@
+---
+# File permissions
+
+- name: Change owner of /var/www/MISP to root:apache recursively
+  file:
+    path: /var/www/MISP
+    owner: root
+    group: apache
+    recurse: yes
+
+- name: Give group rx permission on all directories under /var/www/MISP
+  shell: 'find /var/www/MISP -type d -exec chmod g=rx {} \;'
+
+- name: Allow group to read all files under /var/www/MISP
+  file:
+    path: /var/www/MISP
+    mode: "g+r,o="
+    recurse: yes
+
+- name: Make apache own proper MISP files
+  file:
+    path: "{{ item }}"
+    owner: apache
+    group: apache
+  loop:
+    - /var/www/MISP/app/files
+    - /var/www/MISP/app/files/terms
+    - /var/www/MISP/app/files/scripts/tmp
+    - /var/www/MISP/app/Plugin/CakeResque/tmp
+
+- name: Make apache own proper MISP directories (recursively)
+  file:
+    path: "{{ item }}"
+    owner: apache
+    group: apache
+    recurse: yes
+  loop:
+    - /var/www/MISP/app/tmp
+    - /var/www/MISP/app/webroot/img/orgs
+    - /var/www/MISP/app/webroot/img/custom

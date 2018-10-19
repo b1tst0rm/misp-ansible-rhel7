@@ -1,0 +1,62 @@
+---
+# Download MISP
+
+- name: Download MISP code using git in /var/www/ directory
+  git:
+    repo: https://github.com/MISP/MISP.git
+    dest: /var/www/MISP
+    version: "tags/v{{ misp_version_number }}"
+    force: yes
+
+- name: Make git ignore filesystem permission differences
+  git_config:
+    name: core.filemode
+    value: false
+    scope: system
+
+- name: "[Mitre STIX Install] Install importlib with pip"
+  pip:
+    name: importlib
+
+- name: "[Mitre STIX Install] Install python-six with yum"
+  yum:
+    name: python-six
+    state: latest
+
+- name: "[Mitre STIX Install] Fetch CybOXProject repo"
+  git:
+    repo: https://github.com/CybOXProject/python-cybox.git
+    dest: /var/www/MISP/app/files/scripts/python-cybox
+    force: yes
+
+- name: "[Mitre STIX Install] Fetch STIXProject repo"
+  git:
+    repo: https://github.com/STIXProject/python-stix.git
+    dest: /var/www/MISP/app/files/scripts/python-stix
+    force: yes
+
+- name: "[Mitre STIX Install] Reset umask to 0022 before installing python modules"
+  command: umask 0022
+
+- name: "[Mitre STIX Install] Install CybOX"
+  shell: cd /var/www/MISP/app/files/scripts/python-cybox/ && scl enable rh-python36 'python3 setup.py install'
+
+- name: "[Mitre STIX Install] Install STIX"
+  shell: cd /var/www/MISP/app/files/scripts/python-stix/ && scl enable rh-python36 'python3 setup.py install'
+
+- name: "[mixbox Install] Fetch mixbox repo"
+  git:
+    repo: https://github.com/CybOXProject/mixbox.git
+    dest: /var/www/MISP/app/files/scripts/mixbox
+    force: yes
+
+- name: "[mixbox Install] Install mixbox"
+  shell: cd /var/www/MISP/app/files/scripts/mixbox/ && scl enable rh-python36 'python3 setup.py install'
+
+- name: Enable python3 for php-fpm
+  shell: echo 'source scl_source enable rh-python36' >> /etc/opt/rh/rh-php71/sysconfig/php-fpm && sed -i.org -e 's/^;\(clear_env = no\)/\1/' /etc/opt/rh/rh-php71/php-fpm.d/www.conf
+
+- name: Restart php-fpm service
+  systemd:
+    name: rh-php71-php-fpm.service
+    state: restarted

@@ -1,0 +1,23 @@
+---
+# Setup log rotation
+
+- name: Install the supplied logrotate script
+  copy:
+    src: /var/www/MISP/INSTALL/misp.logrotate
+    dest: /etc/logrotate.d/misp
+    remote_src: yes
+    mode: 0640
+
+- name: Allow logrotate to work under SELinux and modify the log files
+  command: "{{ item }}"
+  loop:
+    - semanage fcontext -a -t httpd_log_t "/var/www/MISP/app/tmp/logs(/.*)?"
+    - chcon -R -t httpd_log_t /var/www/MISP/app/tmp/logs
+    - chmod -R +x /var/www/MISP/app/tmp/logs
+
+- name: Allow logrotate to read /var/www
+  command: "{{ item }}"
+  loop:
+    - checkmodule -M -m -o /tmp/misplogrotate.mod /var/www/MISP/INSTALL/misplogrotate.te
+    - semodule_package -o /tmp/misplogrotate.pp -m /tmp/misplogrotate.mod
+    - semodule -i /tmp/misplogrotate.pp

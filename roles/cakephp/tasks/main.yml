@@ -1,0 +1,52 @@
+---
+# CakePHP install/config
+
+- name: Git fetch submodules (including CakePHP), safely ignore "No submodule mapping found"
+  command: git submodule update --init --recursive
+  args:
+    chdir: /var/www/MISP
+
+- name: Install CakeResque along with its dependencies
+  command: scl enable rh-php71 'php composer.phar {{ item }}'
+  args:
+    chdir: /var/www/MISP/app
+  loop:
+    - require kamisama/cake-resque:4.1.2
+    - config vendor-dir Vendor
+    - install
+
+- name: Install PHP Redis connector through pecl
+  shell: scl enable rh-php71 "yes '' | pecl install redis"
+  args:
+    chdir: /var/www/MISP/app
+  ignore_errors: yes # may error out if package already installed
+    
+- name: Configure PHP Redis connector
+  copy:
+    dest: "/etc/opt/rh/rh-php71/php-fpm.d/redis.ini"
+    content: "extension=redis.so"
+
+- name: Symbolically link (ln) redis.ini after updating it
+  file:  
+    src: /etc/opt/rh/rh-php71/php-fpm.d/redis.ini 
+    dest: /etc/opt/rh/rh-php71/php.d/99-redis.ini
+    state: link
+
+- name: Restart PHP service
+  systemd:
+    name: rh-php71-php-fpm.service
+    state: restarted
+
+- name: Set timezone in php.ini
+  copy:
+    dest: "/etc/opt/rh/rh-php71/php-fpm.d/timezone.ini"
+    content: 'date.timezone = "{{ timezone }}"'
+ 
+- name: Symbolically link (ln) timezone.ini
+  file:  
+    src: /etc/opt/rh/rh-php71/php-fpm.d/timezone.ini
+    dest: /etc/opt/rh/rh-php71/php.d/99-timezone.ini
+    state: link
+
+- name: Set up to use scheduler worker for scheduled tasks
+  command: cp -fa /var/www/MISP/INSTALL/setup/config.php /var/www/MISP/app/Plugin/CakeResque/Config/config.php

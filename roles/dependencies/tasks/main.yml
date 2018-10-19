@@ -1,0 +1,96 @@
+---
+# Acquire the necessary dependencies/packages for MISP
+
+- name: Install some base system dependencies
+  yum:
+    name: "{{ item }}"
+    state: latest
+  loop:
+    - gcc
+    - git
+    - httpd
+    - zip
+    - python-devel
+    - libxslt-devel
+    - zlib-devel
+    - python-pip
+    - ssdeep-devel
+
+- name: Install MariaDB 10.2 from SCL
+  yum:
+    name: rh-mariadb102
+    state: latest
+
+- name: Start the MariaDB service and enable it to start on boot
+  systemd:
+    name: rh-mariadb102-mariadb.service
+    enabled: yes
+    state: started
+    masked: no
+
+- name: Install PHP 7.1 from SCL
+  yum:
+    name: "{{ item }}"
+    state: latest
+  loop:
+    - rh-php71
+    - rh-php71-php-fpm
+    - rh-php71-php-devel
+    - rh-php71-php-mysqlnd
+    - rh-php71-php-mbstring
+    - rh-php71-php-xml
+    - rh-php71-php-bcmath
+    - rh-php71-php-opcache
+      
+- name: Start the PHP FPM service and enable it to start on boot
+  systemd:
+    name: rh-php71-php-fpm.service
+    enabled: yes
+    state: started
+    masked: no
+
+- name: Install Redis 3.2 from SCL
+  yum:
+    name: rh-redis32
+    state: latest
+
+- name: Start Redis service and enable it to start on boot
+  systemd:
+    name: rh-redis32-redis.service
+    enabled: yes
+    state: started
+    masked: no
+
+# Below we first enable SCL shell with mariadb in order to use the command, then run our queries to lock it down
+- name: Run mysql_secure_installation and change MariaDB root password
+  shell: source scl_source enable rh-mariadb102 rh-php71 rh-redis32 && mysql -ne "{{ item }}"
+  loop:
+    - "DELETE FROM mysql.user WHERE User=''"                                                        # Remove anonymous users
+    - "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1')"  # Disallow root login remotely
+    - "DROP DATABASE IF EXISTS test"                                                                # Remove test database
+    - "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%'"                                       # Remove access to test database
+    - "UPDATE mysql.user SET Password=PASSWORD('{{ mariadb_root_password }}') WHERE User='root'"    # Set root password
+    - "FLUSH PRIVILEGES"                                                                            # Update permissions
+  changed_when: False
+  ignore_errors: yes # if we have already ran playbook once this will error out due to root's password already being changed
+
+- name: Update the PHP extension repository and install required package
+  shell: source scl_source enable rh-mariadb102 rh-php71 rh-redis32 && pear channel-update pear.php.net && pear install Crypt_GPG
+  ignore_errors: yes # pear will error out if package is already installed
+
+- name: Install haveged to provide entropy for GPG
+  yum:
+    name: haveged
+    state: latest
+
+- name: Start the haveged service and enable it to start on boot
+  systemd:
+    name: haveged.service
+    enabled: yes
+    state: started
+    masked: no
+
+- name: Install Python 3.6 from SCL
+  yum:
+    name: rh-python36
+    state: latest

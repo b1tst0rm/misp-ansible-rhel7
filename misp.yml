@@ -1,0 +1,20 @@
+---
+# Playbook to deploy an instance of Malware Information Sharing Platform (MISP)
+# on a RHEL7.X server.
+
+- name: Install MISP
+  hosts: all
+  remote_user: "{{ ansible_user }}"
+  become: yes
+  roles:
+    - setup
+    - dependencies
+    - misp_download
+    - cakephp
+    - permissions
+    - database
+    - apache
+    - logs
+    - misp_config
+    - post_install
+    - lief

@@ -1,0 +1,102 @@
+---
+# MISP Configuration
+
+- name: Safely copy (preserving links) configuration files for MISP
+  command: cp -a {{ item }}
+  args:
+    chdir: /var/www/MISP/app/Config
+  loop:
+    - bootstrap.default.php bootstrap.php
+    - database.default.php database.php
+    - core.default.php core.php
+    - config.default.php config.php
+
+- name: Define baseurl in config.php
+  lineinfile:
+    path: /var/www/MISP/app/Config/config.php
+    regexp: "^\\s+'baseurl'"
+    line: "                        'baseurl'                        => '{{ baseurl }}',"
+    backrefs: yes
+
+- name: Set salt key in config.php
+  lineinfile:
+    path: /var/www/MISP/app/Config/config.php
+    regexp: "^    'salt'"
+    line: "    'salt' => '{{ salt_key }}',"
+    backrefs: yes
+
+- name: Set timezone in core.php
+  lineinfile:
+    path: /var/www/MISP/app/Config/core.php
+    regexp: "^//date_default_timezone_set"
+    line: "date_default_timezone_set('{{ timezone }}');"
+    backrefs: yes
+
+- name: Set login user to misp in database.php
+  lineinfile:
+    path: /var/www/MISP/app/Config/database.php
+    regexp: "^\\s+'login' =>"
+    line: "                'login' => 'misp',"
+    backrefs: yes
+
+- name: Set password in database.php
+  lineinfile:
+    path: /var/www/MISP/app/Config/database.php
+    regexp: "^\\s+'password' =>"
+    line: "                'password' => '{{ mariadb_misp_password }}',"
+    backrefs: yes
+
+- name: Set database to misp in database.php
+  lineinfile:
+    path: /var/www/MISP/app/Config/database.php
+    regexp: "^\\s+'database' =>"
+    line: "                'database' => 'misp',"
+    backrefs: yes
+
+- name: Allow config parameters to be changed from web interface (1)
+  file:
+    path: /var/www/MISP/app/Config/config.php
+    owner: apache
+    group: apache
+    
+- name: Allow config parameters to be changed from web interface (2)
+  command: "chcon -t httpd_sys_rw_content_t /var/www/MISP/app/Config/config.php"
+
+- name: Move your already-generated GPG key (see README.md) to /var/www/MISP
+  command: mv /root/.gnupg /var/www/MISP/
+  ignore_errors: yes # if you already ran this once, the directory is already gone/moved
+
+- name: Give apache ownership of GPG directory (1)
+  file:
+    path: /var/www/MISP/.gnupg
+    owner: apache
+    group: apache
+    recurse: yes
+
+- name: Give apache ownership of GPG directory (2)
+  command: chcon -R -t httpd_sys_rw_content_t /var/www/MISP/.gnupg
+
+- name: Export public key to webroot
+  shell: "sudo -u apache gpg --homedir /var/www/MISP/.gnupg --export --armor {{ admin_email }} > /var/www/MISP/app/webroot/gpg.asc"
+
+- name: Start the workers to enable background jobs (1)
+  file:
+    path: /var/www/MISP/app/Console/worker/start.sh
+    mode: "a+x"
+
+- name: Start the workers to enable background jobs (1)
+  shell: 'scl enable rh-php71 rh-redis32 rh-mariadb102 /var/www/MISP/app/Console/worker/start.sh'
+  become: yes
+  become_method: su
+  become_user: apache
+  become_flags: '-s /bin/bash'
+
+- name: Make background workers start on boot (1)
+  lineinfile:
+    path: /etc/rc.local
+    line: "su -s /bin/bash apache -c 'scl enable rh-php71 rh-redis32 rh-mariadb102 /var/www/MISP/app/Console/worker/start.sh'"
+
+- name: Make background workers start on boot (2)
+  file:
+    path: /etc/rc.local
+    mode: "a+x"
