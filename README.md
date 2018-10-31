@@ -32,7 +32,7 @@ Once complete you'll likely want to **remove root's authorized_keys and disable 
 | admin_email | Email for signing GPG key |
 | baseurl | https://FQDN_HERE |
 | fqdn | IP address OR domain name, ie., misptest.local |
-| salt_key | Random string of characters, numbers, and symbols |
+| salt_key | Exactly 32 bytes of characters, numbers, and symbols |
 | country | Self-signed SSL cert info |
 | state | Self-signed SSL cert info |
 | locality | Self-signed SSL cert info |
